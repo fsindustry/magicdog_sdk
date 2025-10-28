@@ -7,9 +7,11 @@
 #include <csignal>
 #include <fstream>
 
+#include <fmt/core.h>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
+#include <random>
 #include <thread>
 
 using namespace magic::dog;
@@ -51,6 +53,12 @@ std::unordered_map<std::string, member> BETAGO_MEMBERS = {
     {"崔照斌", {100000000010, "照斌好！照亮全场的文武双全！", "智算云，数据平台研发部，数据库研发组"}},
     {"唐贵乾", {100000000011, "贵乾好！富贵乾坤尽在掌握！", "智算云，数据平台研发部，数据库研发组"}}};
 
+static const std::vector<std::string> DEFAULT_GREETING_TEMPLATES = {
+    "你好呀！%s，今天过得怎么样？",
+    "嗨！%s，希望你今天心情愉快！",
+    "Hello! %s， 愿你今天充满能量！",
+    "Hi！%s，认识你很高兴！"};
+
 void signalHandler(int signum) {
   std::cout << "Interrupt signal (" << signum << ") received.\n";
   is_running.store(false);
@@ -90,7 +98,7 @@ void print_help(const char* prog_name) {
 }
 
 int getch() {
-  struct termios oldt, newt;
+  termios oldt, newt;
   int ch;
   tcgetattr(STDIN_FILENO, &oldt);  // Get current terminal settings
   newt = oldt;
@@ -192,41 +200,10 @@ void Dancing() {
 
   usleep(3000 * 1000);
 
-  // // 启动音乐播放线程
-  // std::atomic<bool> stop_music{false};
-  // std::thread music_thread([&audioController, &stop_music]() {
-  //   std::cout << "Play music in background thread" << std::endl;
-  //
-  //   std::string music_file_path =
-  //       "local_music:/opt/eame/dreame_manager/share/dreame_manager/configures/music_files/dance02.mp3";
-  //
-  //   TtsCommand music_tts;
-  //   music_tts.id = "100000000200";
-  //   music_tts.content = music_file_path;
-  //   music_tts.priority = TtsPriority::HIGH;
-  //   music_tts.mode = TtsMode::CLEARBUFFER;
-  //
-  //   Status status = audioController.Play(music_tts);
-  //   if (status.code != ErrorCode::OK) {
-  //     std::cerr << "Music play failed!" << std::endl;
-  //     return;
-  //   }
-  //
-  //   // 模拟播放检测（防止线程空转）
-  //   while (!stop_music.load()) {
-  //     usleep(100000);  // 每100ms检测一次是否要退出
-  //   }
-  //
-  //   audioController.Stop();
-  //   std::cout << "Music thread exiting..." << std::endl;
-  // });
-
-  // start dancing
-  auto& controller = robot.GetHighLevelMotionController();
-
   // 记录开始时间
   auto start_time = std::chrono::steady_clock::now();
-
+  // start dancing
+  auto& controller = robot.GetHighLevelMotionController();
   status = controller.ExecuteTrick(TrickAction::ACTION_DANCE);
   usleep(45 * 1000 * 1000);
 
@@ -240,18 +217,13 @@ void Dancing() {
   // 打印耗时
   std::cout << "[Dancing] 动作总耗时: " << duration_ms << " ms" << std::endl;
 
-  // // 通知音乐线程结束并等待退出
-  // stop_music.store(true);
-  // if (music_thread.joinable()) {
-  //   music_thread.join();
-  // }
-
   tts.id = "100000000102";
   tts.content = "谢谢!";
   tts.priority = TtsPriority::HIGH;
   tts.mode = TtsMode::CLEARBUFFER;
   status = audioController.Play(tts);
 
+  // 恢复人脸识别
   sensorController.OpenBinocularCamera();
 }
 
@@ -506,7 +478,10 @@ std::string get_face_name(std::string& response) {
     auto data = j["data"];
     std::string data_status = data.value("status", "");
     if (data_status == "success") {
-      return data.value("name", "");
+      double similarity = data.value("similarity", 0.0);
+      if (similarity > 0.85) {
+        return data.value("name", "");
+      }
     }
   } else {
     std::cerr << "JSON does not contain 'data'" << std::endl;
@@ -516,23 +491,35 @@ std::string get_face_name(std::string& response) {
 
 void greetings(const std::string& name) {
   try {
+    std::string tts_id, tts_content;
     auto it = BETAGO_MEMBERS.find(name);
     if (it != BETAGO_MEMBERS.end()) {
       const member& m = it->second;
-      auto& controller = robot.GetAudioController();
 
-      TtsCommand tts;
-      tts.id = std::to_string(m.command_id);
-      tts.content = m.greeting;
-      tts.priority = TtsPriority::HIGH;
-      tts.mode = TtsMode::CLEARTOP;
+      tts_id = std::to_string(m.command_id);
+      tts_content = m.greeting;
+    } else {
+      tts_id = "10000086";
+      static std::random_device rd;
+      static std::mt19937 gen(rd());
+      std::uniform_int_distribution<> dis(0, DEFAULT_GREETING_TEMPLATES.size() - 1);
+      const std::string& tmpl = DEFAULT_GREETING_TEMPLATES[dis(gen)];
+      char buffer[128];
+      std::snprintf(buffer, sizeof(buffer), tmpl.c_str(), name.c_str());
+      tts_content = buffer;
+    }
 
-      Status status = controller.Play(tts);
-      if (status.code != ErrorCode::OK) {
-        std::cerr << "Play TTS failed"
-                  << ", code: " << status.code
-                  << ", message: " << status.message << std::endl;
-      }
+    TtsCommand tts;
+    tts.id = tts_id;
+    tts.content = tts_content;
+    tts.priority = TtsPriority::HIGH;
+    tts.mode = TtsMode::CLEARTOP;
+    auto& controller = robot.GetAudioController();
+    Status status = controller.Play(tts);
+    if (status.code != ErrorCode::OK) {
+      std::cerr << "Play TTS failed"
+                << ", code: " << status.code
+                << ", message: " << status.message << std::endl;
     }
   } catch (const std::exception& e) {
     std::cerr << "Exception in greetings: " << e.what() << std::endl;
@@ -645,7 +632,6 @@ static VoiceState v_state;
 
 void (*receive_voice())(std::shared_ptr<ByteMultiArray>) {
   return [](const std::shared_ptr<ByteMultiArray> data) {
-
     auto now = std::chrono::steady_clock::now();
 
     // 限制全局请求频率
@@ -659,7 +645,6 @@ void (*receive_voice())(std::shared_ptr<ByteMultiArray>) {
     std::cout << "Received BF voice data, size: " << data->data.size() << std::endl;
   };
 }
-
 
 int initial_robot() {
   std::string local_ip = "192.168.54.10";
@@ -680,7 +665,6 @@ int initial_robot() {
   }
   return 0;
 }
-
 
 int initial_audio_controller() {
   auto& controller = robot.GetAudioController();
