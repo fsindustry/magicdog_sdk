@@ -17,6 +17,8 @@ using namespace magic::dog;
 magic::dog::MagicRobot robot;
 std::atomic<bool> is_running(true);
 
+GaitMode target_gait = GaitMode::GAIT_DOWN_CLIMB_STAIRS;
+
 std::atomic<float> left_x_axis(0.0);
 std::atomic<float> left_y_axis(0.0);
 std::atomic<float> right_x_axis(0.0);
@@ -37,7 +39,7 @@ struct member {
 };
 
 std::unordered_map<std::string, member> BETAGO_MEMBERS = {
-    {"富正鑫", {100000000001, "富哥好！今天又是财富自由的一天吗？", "智算云，数据平台研发部，数据库研发组"}},
+    {"富正鑫", {100000000001, "富哥好！今天又是元气满满的一天吗？", "智算云，数据平台研发部，数据库研发组"}},
     {"卢祚", {100000000002, "卢总好！福气满满的卢总今天有什么好运？", "智算云，数据平台研发部，数据库研发组"}},
     {"肖文然", {100000000003, "文然兄好！文艺气息扑面而来！", "智算云，数据平台研发部，数据库研发组"}},
     {"陈嘉敏", {100000000004, "嘉敏好！聪明伶俐的你今天有什么新发现？", "智算云，数据平台研发部，数据库研发组"}},
@@ -63,20 +65,26 @@ void print_help(const char* prog_name) {
   std::cout << "Usage: " << prog_name << "\n";
   std::cout << "Key Function Description:\n";
   std::cout << "  ESC      Exit program\n";
-  std::cout << "  1        Function 1: Position control standing\n";
-  std::cout << "  2        Function 2: Force control standing\n";
-  std::cout << "  c        Function 3: Execute trick - sit down\n";
-  std::cout << "  z        Function 3: Execute trick - lie down\n";
-  std::cout << "  space    Function 3: Execute trick - jump\n";
-  std::cout << "  w        Function 4: Move forward\n";
-  std::cout << "  a        Function 5: Move left\n";
-  std::cout << "  s        Function 6: Move backward\n";
-  std::cout << "  d        Function 7: Move right\n";
-  std::cout << "  x        Function 8: Stop movement\n";
-  std::cout << "  q        Function 9: Turn left\n";
-  std::cout << "  e        Function 10: Turn right\n";
-  std::cout << "  v        Function 11: Close Head Motor\n";
-  std::cout << "  b        Function 12: Open Head Motor\n";
+  std::cout << "  1        Position control standing\n";
+  std::cout << "  2        Force control standing\n";
+  std::cout << "  3        down climb stairs\n";
+  std::cout << "  4        up climb stairs\n";
+  std::cout << "  5        walk\n";
+  std::cout << "  g        Execute trick - shake right hand\n";
+  std::cout << "  f        Execute trick - front flip\n";
+  std::cout << "  r        Execute trick - back flip\n";
+  std::cout << "  c        Execute trick - sit down\n";
+  std::cout << "  z        Execute trick - lie down\n";
+  std::cout << "  space    Execute trick - jump\n";
+  std::cout << "  w        Move forward\n";
+  std::cout << "  a        Move left\n";
+  std::cout << "  s        Move backward\n";
+  std::cout << "  d        Move right\n";
+  std::cout << "  x        Stop movement\n";
+  std::cout << "  q        Turn left\n";
+  std::cout << "  e        Turn right\n";
+  std::cout << "  v        Close Head Motor\n";
+  std::cout << "  b        Open Head Motor\n";
 }
 
 int getch() {
@@ -120,50 +128,66 @@ void BalanceStand() {
   std::cout << "Robot gait set to GAIT_BALANCE_STAND successfully." << std::endl;
 }
 
-void ExecuteSitDown() {
+void DownClimbStairs() {
   // Get high level motion controller
   auto& controller = robot.GetHighLevelMotionController();
 
-  // Execute trick
-  auto status = controller.ExecuteTrick(TrickAction::ACTION_SIT_DOWN);
+  // Set posture display gait
+  target_gait = GaitMode::GAIT_DOWN_CLIMB_STAIRS;
+  auto status = controller.SetGait(GaitMode::GAIT_DOWN_CLIMB_STAIRS);
   if (status.code != ErrorCode::OK) {
-    std::cerr << "Execute robot trick failed"
+    std::cerr << "Set robot gait failed"
               << ", code: " << status.code
               << ", message: " << status.message << std::endl;
     return;
   }
-  std::cout << "Robot sit down executed successfully." << std::endl;
+  std::cout << "Robot gait set to GAIT_DOWN_CLIMB_STAIRS successfully." << std::endl;
 }
 
-
-void ExecuteLieDown() {
+void UpClimbStairs() {
   // Get high level motion controller
   auto& controller = robot.GetHighLevelMotionController();
 
-  // Execute trick
-  auto status = controller.ExecuteTrick(TrickAction::ACTION_LIE_DOWN);
+  // Set posture display gait
+  target_gait = GaitMode::GAIT_UP_CLIMB_STAIRS;
+  auto status = controller.SetGait(GaitMode::GAIT_UP_CLIMB_STAIRS);
   if (status.code != ErrorCode::OK) {
-    std::cerr << "Execute robot trick failed"
+    std::cerr << "Set robot gait failed"
               << ", code: " << status.code
               << ", message: " << status.message << std::endl;
     return;
   }
-  std::cout << "Robot lie down executed successfully." << std::endl;
+  std::cout << "Robot gait set to GAIT_UP_CLIMB_STAIRS successfully." << std::endl;
 }
 
-void ExecuteJump() {
+void Walk() {
   // Get high level motion controller
   auto& controller = robot.GetHighLevelMotionController();
 
-  // Execute trick
-  auto status = controller.ExecuteTrick(TrickAction::ACTION_HIGH_JUMP);
+  // Set posture display gait
+  target_gait = GaitMode::GAIT_WALK;
+  auto status = controller.SetGait(GaitMode::GAIT_WALK);
   if (status.code != ErrorCode::OK) {
-    std::cerr << "Execute robot trick failed"
+    std::cerr << "Set robot gait failed"
               << ", code: " << status.code
               << ", message: " << status.message << std::endl;
     return;
   }
-  std::cout << "Robot jump executed successfully." << std::endl;
+  std::cout << "Robot gait set to GAIT_WALK successfully." << std::endl;
+}
+
+void ExecuteTrickAction(const TrickAction action, const std::string& action_name) {
+  auto& controller = robot.GetHighLevelMotionController();
+
+  auto status = controller.ExecuteTrick(action);
+  if (status.code != ErrorCode::OK) {
+    std::cerr << "Execute robot trick failed: " << action_name
+              << ", code: " << status.code
+              << ", message: " << status.message << std::endl;
+    return;
+  }
+
+  std::cout << "Robot " << action_name << " executed successfully." << std::endl;
 }
 
 void CloseHeadMotor() {
@@ -271,11 +295,10 @@ static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::stri
   return total_size;
 }
 
-constexpr int GREETING_INTERVAL_MS = 5000; // 5秒
+constexpr int GREETING_INTERVAL_MS = 5000;  // 5秒
 std::chrono::time_point<std::chrono::steady_clock> last_time = std::chrono::steady_clock::now();
 
 void greetings(const std::string& response) {
-
   // 使用静态变量记录上一次执行时间
   last_time = std::chrono::steady_clock::now() - std::chrono::milliseconds(GREETING_INTERVAL_MS);
 
@@ -494,8 +517,8 @@ void motion_control() {
                 << ", message: " << status.message << std::endl;
       return false;
     }
-    if (current_gait != GaitMode::GAIT_DOWN_CLIMB_STAIRS) {
-      status = robot.GetHighLevelMotionController().SetGait(GaitMode::GAIT_DOWN_CLIMB_STAIRS);
+    if (current_gait != target_gait) {
+      status = robot.GetHighLevelMotionController().SetGait(target_gait);
       if (status.code != ErrorCode::OK) {
         std::cerr << "Set robot gait failed"
                   << ", code: " << status.code
@@ -513,7 +536,7 @@ void motion_control() {
                 << ", message: " << status.message << std::endl;
       return false;
     }
-    while (current_gait != GaitMode::GAIT_DOWN_CLIMB_STAIRS) {
+    while (current_gait != target_gait) {
       usleep(10000);
       status = robot.GetHighLevelMotionController().GetGait(current_gait);
       if (status.code != ErrorCode::OK) {
@@ -543,12 +566,46 @@ void motion_control() {
         BalanceStand();
         break;
       }
+      case '3': {
+        UpClimbStairs();
+        break;
+      }
+      case '4': {
+        DownClimbStairs();
+        break;
+      }
+      case '5': {
+        Walk();
+        break;
+      }
+      case 'g': {
+        JoyStickCommand(0.0, 0.0, 0.0, 0.0);
+        ExecuteTrickAction(TrickAction::ACTION_SHAKE_RIGHT_HAND, "ACTION_SHAKE_RIGHT_HAND");
+        break;
+      }
+      case 'f': {
+        JoyStickCommand(0.0, 0.0, 0.0, 0.0);
+        ExecuteTrickAction(TrickAction::ACTION_FRONT_FLIP, "ACTION_FRONT_FLIP");
+        break;
+      }
+      case 'r': {
+        JoyStickCommand(0.0, 0.0, 0.0, 0.0);
+        ExecuteTrickAction(TrickAction::ACTION_BACK_FLIP, "ACTION_BACK_FLIP");
+        break;
+      }
       case 'c': {
-        ExecuteSitDown();
+        JoyStickCommand(0.0, 0.0, 0.0, 0.0);
+        ExecuteTrickAction(TrickAction::ACTION_SIT_DOWN, "ACTION_SIT_DOWN");
         break;
       }
       case 'z': {
-        ExecuteLieDown();
+        JoyStickCommand(0.0, 0.0, 0.0, 0.0);
+        ExecuteTrickAction(TrickAction::ACTION_LIE_DOWN, "ACTION_LIE_DOWN");
+        break;
+      }
+      case 32: {  // space
+        JoyStickCommand(0.0, 0.0, 0.0, 0.0);
+        ExecuteTrickAction(TrickAction::ACTION_HIGH_JUMP, "ACTION_HIGH_JUMP");
         break;
       }
       case 'w': {
@@ -613,11 +670,6 @@ void motion_control() {
       }
       case 'b': {
         OpenHeadMotor();
-        break;
-      }
-      case 32: {  // space
-        JoyStickCommand(0.0, 0.0, 0.0, 0.0);
-        ExecuteJump();
         break;
       }
       default:
