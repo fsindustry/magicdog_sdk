@@ -354,7 +354,7 @@ void motion_control() {
       break;
     }
 
-    std::cout << "Key ASCII: " << key << ", Character: " << static_cast<char>(key) << std::endl;
+    // std::cout << "Key ASCII: " << key << ", Character: " << static_cast<char>(key) << std::endl;
     switch (key) {
       case '1': {
         RecoveryStand();
