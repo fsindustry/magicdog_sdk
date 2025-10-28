@@ -83,8 +83,6 @@ void print_help(const char* prog_name) {
   std::cout << "  x        Stop movement\n";
   std::cout << "  q        Turn left\n";
   std::cout << "  e        Turn right\n";
-  std::cout << "  v        Close Head Motor\n";
-  std::cout << "  b        Open Head Motor\n";
 }
 
 int getch() {
@@ -190,33 +188,6 @@ void ExecuteTrickAction(const TrickAction action, const std::string& action_name
   std::cout << "Robot " << action_name << " executed successfully." << std::endl;
 }
 
-void CloseHeadMotor() {
-  // Get high level motion controller
-  auto& controller = robot.GetHighLevelMotionController();
-
-  // Close head motor
-  auto status = controller.DisableHeadMotor();
-  if (status.code != ErrorCode::OK) {
-    std::cerr << "Disable head motor failed"
-              << ", code: " << status.code << std::endl;
-    return;
-  }
-  std::cout << "Head motor disabled successfully." << std::endl;
-}
-
-void OpenHeadMotor() {
-  // Get high level motion controller
-  auto& controller = robot.GetHighLevelMotionController();
-
-  // Open head motor
-  auto status = controller.EnableHeadMotor();
-  if (status.code != ErrorCode::OK) {
-    std::cerr << "Enable head motor failed"
-              << ", code: " << status.code << std::endl;
-    return;
-  }
-  std::cout << "Head motor enabled successfully." << std::endl;
-}
 
 void JoyStickCommand(float left_x_axis,
                      float left_y_axis,
@@ -662,14 +633,6 @@ void motion_control() {
           break;
         }
         JoyStickCommand(0.0, 0.0, 0.0, 0.0);  // Stop
-        break;
-      }
-      case 'v': {
-        CloseHeadMotor();
-        break;
-      }
-      case 'b': {
-        OpenHeadMotor();
         break;
       }
       default:
