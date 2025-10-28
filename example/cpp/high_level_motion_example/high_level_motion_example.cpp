@@ -213,33 +213,33 @@ int main(int argc, char* argv[]) {
     return -1;
   }
 
-  // Set gait speed ratio
-  status = robot.GetHighLevelMotionController().SetGaitSpeedRatio(GaitMode::GAIT_DOWN_CLIMB_STAIRS, GaitSpeedRatio{0.25, 0.2, 0.4});
-  if (status.code != ErrorCode::OK) {
-    std::cerr << "Set gait speed ratio failed"
-              << ", code: " << status.code
-              << ", message: " << status.message << std::endl;
-    robot.Shutdown();
-    return -1;
-  }
-
-  // Get all gait speed ratio
-  AllGaitSpeedRatio gait_speed_ratios;
-  status = robot.GetHighLevelMotionController().GetAllGaitSpeedRatio(gait_speed_ratios);
-  if (status.code != ErrorCode::OK) {
-    std::cerr << "Get all gait speed ratio failed"
-              << ", code: " << status.code
-              << ", message: " << status.message << std::endl;
-    robot.Shutdown();
-    return -1;
-  }
-
-  left_x_axis_gain.store(gait_speed_ratios.gait_speed_ratios[GaitMode::GAIT_DOWN_CLIMB_STAIRS].lateral_ratio);
-  left_y_axis_gain.store(gait_speed_ratios.gait_speed_ratios[GaitMode::GAIT_DOWN_CLIMB_STAIRS].straight_ratio);
-  right_x_axis_gain.store(gait_speed_ratios.gait_speed_ratios[GaitMode::GAIT_DOWN_CLIMB_STAIRS].turn_ratio);
-  right_y_axis_gain.store(0.0);
-
-  std::cout << "left_x_axis_gain: " << left_x_axis_gain.load() << ", left_y_axis_gain: " << left_y_axis_gain.load() << ", right_x_axis_gain: " << right_x_axis_gain.load() << ", right_y_axis_gain: " << right_y_axis_gain.load() << std::endl;
+  // // Set gait speed ratio
+  // status = robot.GetHighLevelMotionController().SetGaitSpeedRatio(GaitMode::GAIT_DOWN_CLIMB_STAIRS, GaitSpeedRatio{0.25, 0.2, 0.4});
+  // if (status.code != ErrorCode::OK) {
+  //   std::cerr << "Set gait speed ratio failed"
+  //             << ", code: " << status.code
+  //             << ", message: " << status.message << std::endl;
+  //   robot.Shutdown();
+  //   return -1;
+  // }
+  //
+  // // Get all gait speed ratio
+  // AllGaitSpeedRatio gait_speed_ratios;
+  // status = robot.GetHighLevelMotionController().GetAllGaitSpeedRatio(gait_speed_ratios);
+  // if (status.code != ErrorCode::OK) {
+  //   std::cerr << "Get all gait speed ratio failed"
+  //             << ", code: " << status.code
+  //             << ", message: " << status.message << std::endl;
+  //   robot.Shutdown();
+  //   return -1;
+  // }
+  //
+  // left_x_axis_gain.store(gait_speed_ratios.gait_speed_ratios[GaitMode::GAIT_DOWN_CLIMB_STAIRS].lateral_ratio);
+  // left_y_axis_gain.store(gait_speed_ratios.gait_speed_ratios[GaitMode::GAIT_DOWN_CLIMB_STAIRS].straight_ratio);
+  // right_x_axis_gain.store(gait_speed_ratios.gait_speed_ratios[GaitMode::GAIT_DOWN_CLIMB_STAIRS].turn_ratio);
+  // right_y_axis_gain.store(0.0);
+  //
+  // std::cout << "left_x_axis_gain: " << left_x_axis_gain.load() << ", left_y_axis_gain: " << left_y_axis_gain.load() << ", right_x_axis_gain: " << right_x_axis_gain.load() << ", right_y_axis_gain: " << right_y_axis_gain.load() << std::endl;
 
   std::thread joy_thread(JoyThread);
 

@@ -69,20 +69,24 @@ void print_help(const char* prog_name) {
   std::cout << "  2        Force control standing\n";
   std::cout << "  3        down climb stairs\n";
   std::cout << "  4        up climb stairs\n";
-  std::cout << "  5        walk\n";
   std::cout << "  g        Execute trick - shake right hand\n";
   std::cout << "  f        Execute trick - front flip\n";
   std::cout << "  r        Execute trick - back flip\n";
   std::cout << "  c        Execute trick - sit down\n";
   std::cout << "  z        Execute trick - lie down\n";
   std::cout << "  space    Execute trick - jump\n";
+  std::cout << "  h        Execute trick - dance\n";
   std::cout << "  w        Move forward\n";
   std::cout << "  a        Move left\n";
   std::cout << "  s        Move backward\n";
   std::cout << "  d        Move right\n";
-  std::cout << "  x        Stop movement\n";
   std::cout << "  q        Turn left\n";
   std::cout << "  e        Turn right\n";
+  std::cout << "  x        Stop movement\n";
+  std::cout << "  W        Jump forward\n";
+  std::cout << "  A        Jump left\n";
+  std::cout << "  S        Stretch\n";
+  std::cout << "  D        Jump right\n";
 }
 
 int getch() {
@@ -126,22 +130,6 @@ void BalanceStand() {
   std::cout << "Robot gait set to GAIT_BALANCE_STAND successfully." << std::endl;
 }
 
-void DownClimbStairs() {
-  // Get high level motion controller
-  auto& controller = robot.GetHighLevelMotionController();
-
-  // Set posture display gait
-  target_gait = GaitMode::GAIT_DOWN_CLIMB_STAIRS;
-  auto status = controller.SetGait(GaitMode::GAIT_DOWN_CLIMB_STAIRS);
-  if (status.code != ErrorCode::OK) {
-    std::cerr << "Set robot gait failed"
-              << ", code: " << status.code
-              << ", message: " << status.message << std::endl;
-    return;
-  }
-  std::cout << "Robot gait set to GAIT_DOWN_CLIMB_STAIRS successfully." << std::endl;
-}
-
 void UpClimbStairs() {
   // Get high level motion controller
   auto& controller = robot.GetHighLevelMotionController();
@@ -158,20 +146,20 @@ void UpClimbStairs() {
   std::cout << "Robot gait set to GAIT_UP_CLIMB_STAIRS successfully." << std::endl;
 }
 
-void Walk() {
+void DownClimbStairs() {
   // Get high level motion controller
   auto& controller = robot.GetHighLevelMotionController();
 
   // Set posture display gait
-  target_gait = GaitMode::GAIT_WALK;
-  auto status = controller.SetGait(GaitMode::GAIT_WALK);
+  target_gait = GaitMode::GAIT_DOWN_CLIMB_STAIRS;
+  auto status = controller.SetGait(GaitMode::GAIT_DOWN_CLIMB_STAIRS);
   if (status.code != ErrorCode::OK) {
     std::cerr << "Set robot gait failed"
               << ", code: " << status.code
               << ", message: " << status.message << std::endl;
     return;
   }
-  std::cout << "Robot gait set to GAIT_WALK successfully." << std::endl;
+  std::cout << "Robot gait set to GAIT_DOWN_CLIMB_STAIRS successfully." << std::endl;
 }
 
 void ExecuteTrickAction(const TrickAction action, const std::string& action_name) {
@@ -188,6 +176,84 @@ void ExecuteTrickAction(const TrickAction action, const std::string& action_name
   std::cout << "Robot " << action_name << " executed successfully." << std::endl;
 }
 
+void Dancing() {
+  // 暂停图像识别
+  auto& sensorController = robot.GetSensorController();
+  sensorController.CloseBinocularCamera();
+
+  auto& audioController = robot.GetAudioController();
+  // Play voice
+  TtsCommand tts;
+  tts.id = "100000000101";
+  tts.content = "我给大家跳个舞吧!";
+  tts.priority = TtsPriority::HIGH;
+  tts.mode = TtsMode::CLEARBUFFER;
+  Status status = audioController.Play(tts);
+
+  usleep(3000 * 1000);
+
+  // // 启动音乐播放线程
+  // std::atomic<bool> stop_music{false};
+  // std::thread music_thread([&audioController, &stop_music]() {
+  //   std::cout << "Play music in background thread" << std::endl;
+  //
+  //   std::string music_file_path =
+  //       "local_music:/opt/eame/dreame_manager/share/dreame_manager/configures/music_files/dance02.mp3";
+  //
+  //   TtsCommand music_tts;
+  //   music_tts.id = "100000000200";
+  //   music_tts.content = music_file_path;
+  //   music_tts.priority = TtsPriority::HIGH;
+  //   music_tts.mode = TtsMode::CLEARBUFFER;
+  //
+  //   Status status = audioController.Play(music_tts);
+  //   if (status.code != ErrorCode::OK) {
+  //     std::cerr << "Music play failed!" << std::endl;
+  //     return;
+  //   }
+  //
+  //   // 模拟播放检测（防止线程空转）
+  //   while (!stop_music.load()) {
+  //     usleep(100000);  // 每100ms检测一次是否要退出
+  //   }
+  //
+  //   audioController.Stop();
+  //   std::cout << "Music thread exiting..." << std::endl;
+  // });
+
+  // start dancing
+  auto& controller = robot.GetHighLevelMotionController();
+
+  // 记录开始时间
+  auto start_time = std::chrono::steady_clock::now();
+
+  status = controller.ExecuteTrick(TrickAction::ACTION_DANCE);
+  usleep(30 * 1000 * 1000);
+
+  // 记录结束时间
+  auto end_time = std::chrono::steady_clock::now();
+
+  // 计算耗时（毫秒）
+  auto duration_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+
+  // 打印耗时
+  std::cout << "[Dancing] 动作总耗时: " << duration_ms << " ms" << std::endl;
+
+  // // 通知音乐线程结束并等待退出
+  // stop_music.store(true);
+  // if (music_thread.joinable()) {
+  //   music_thread.join();
+  // }
+
+  tts.id = "100000000102";
+  tts.content = "谢谢!";
+  tts.priority = TtsPriority::HIGH;
+  tts.mode = TtsMode::CLEARBUFFER;
+  status = audioController.Play(tts);
+
+  sensorController.OpenBinocularCamera();
+}
 
 void JoyStickCommand(float left_x_axis,
                      float left_y_axis,
@@ -237,240 +303,6 @@ void send_motion_cmd() {
 
     usleep(10000);
   }
-}
-
-int initial_robot() {
-  std::string local_ip = "192.168.54.10";
-  // Configure local IP address for direct network connection to machine and initialize SDK
-  if (!robot.Initialize(local_ip)) {
-    std::cerr << "Robot SDK initialization failed." << std::endl;
-    robot.Shutdown();
-    return -1;
-  }
-
-  Status status = robot.Connect();
-  if (status.code != ErrorCode::OK) {
-    std::cerr << "Connect robot failed"
-              << ", code: " << status.code
-              << ", message: " << status.message << std::endl;
-    robot.Shutdown();
-    return -1;
-  }
-  return 0;
-}
-
-// 用于接收 HTTP 响应
-static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* output) {
-  size_t total_size = size * nmemb;
-  output->append((char*)contents, total_size);
-  return total_size;
-}
-
-// 原子标志，用于防止并发执行
-std::atomic_flag greeting_lock = ATOMIC_FLAG_INIT;
-
-// 用于记录上次问候的人名和时间
-std::string last_greeted_name;
-std::chrono::steady_clock::time_point last_greeted_time = std::chrono::steady_clock::now();
-
-constexpr int SAME_PERSON_DELAY_MS = 5000;  // 同一个人重复识别间隔 5 秒
-
-void greetings(const std::string& response) {
-  // 尝试获取锁
-  if (greeting_lock.test_and_set(std::memory_order_acquire)) {
-    // 若返回 true，说明已有线程正在执行，直接返回
-    std::cout << "Another greeting thread is running, skip this call." << std::endl;
-    return;
-  }
-
-  try {
-    // ---------------- 临界区开始 ----------------
-    nlohmann::json j = nlohmann::json::parse(response);
-
-    if (j.contains("data")) {
-      auto data = j["data"];
-      std::string data_status = data.value("status", "");
-
-      if (data_status == "success") {
-        std::string name = data.value("name", "");
-        std::cout << "data.name: " << name << std::endl;
-
-        auto now = std::chrono::steady_clock::now();
-        if (name == last_greeted_name) {
-          auto same_person_duration_ms =
-              std::chrono::duration_cast<std::chrono::milliseconds>(now - last_greeted_time).count();
-          if (same_person_duration_ms < SAME_PERSON_DELAY_MS) {
-            std::cout << "Detected same person (" << name << ") within "
-                      << SAME_PERSON_DELAY_MS << "ms, skip greeting." << std::endl;
-            greeting_lock.clear(std::memory_order_release);
-            return;
-          }
-        }
-
-        last_greeted_name = name;
-        last_greeted_time = now;
-
-        auto it = BETAGO_MEMBERS.find(name);
-        if (it != BETAGO_MEMBERS.end()) {
-          const member& m = it->second;
-          auto& controller = robot.GetAudioController();
-
-          TtsCommand tts;
-          tts.id = std::to_string(m.command_id);
-          tts.content = m.greeting;
-          tts.priority = TtsPriority::HIGH;
-          tts.mode = TtsMode::CLEARTOP;
-
-          Status status = controller.Play(tts);
-          if (status.code != ErrorCode::OK) {
-            std::cerr << "Play TTS failed"
-                      << ", code: " << status.code
-                      << ", message: " << status.message << std::endl;
-          }
-        }
-      }
-    } else {
-      std::cerr << "JSON does not contain 'data'" << std::endl;
-    }
-    // ---------------- 临界区结束 ----------------
-  } catch (const std::exception& e) {
-    std::cerr << "Exception in greetings: " << e.what() << std::endl;
-  }
-
-  // 无论如何都释放锁
-  greeting_lock.clear(std::memory_order_release);
-}
-
-
-int initial_audio_controller() {
-  auto& controller = robot.GetAudioController();
-  int get_volume = 0;
-  Status status = controller.GetVolume(get_volume);
-  if (status.code != ErrorCode::OK) {
-    std::cerr << "Get volume failed"
-              << ", code: " << status.code
-              << ", message: " << status.message << std::endl;
-    robot.Shutdown();
-    return -1;
-  }
-
-  std::cout << "Get volume success, volume: " << std::to_string(get_volume) << std::endl;
-
-  // Set robot volume
-  status = controller.SetVolume(5);
-  if (status.code != ErrorCode::OK) {
-    std::cerr << "Set volume failed"
-              << ", code: " << status.code
-              << ", message: " << status.message << std::endl;
-    robot.Shutdown();
-    return -1;
-  }
-
-  return 0;
-}
-
-int initial_sensor_controller() {
-  auto& controller = robot.GetSensorController();
-  Status status = controller.OpenChannelSwith();
-  if (status.code != ErrorCode::OK) {
-    std::cerr << "Open channel failed"
-              << ", code: " << status.code
-              << ", message: " << status.message << std::endl;
-    robot.Shutdown();
-    return -1;
-  }
-
-  controller.SubscribeLeftBinocularHighImg([](const std::shared_ptr<CompressedImage> msg) {
-    std::cout << "Received rgbd color image, format: " << msg->format << std::endl;
-
-    try {
-      // // 构造保存文件名（可以用时间戳）
-      // std::string filename = "rgbd_image_" + std::to_string(msg->header.stamp) + ".jpg";
-      // // 保存到本地
-      // std::ofstream out(filename, std::ios::binary);
-      // if (!out) {
-      //   std::cerr << "Failed to open file for writing: " << filename << std::endl;
-      //   return;
-      // }
-      // out.write(reinterpret_cast<const char*>(msg->data.data()), msg->data.size());
-      // out.close();
-
-      // 初始化 libcurl
-      CURL* curl = curl_easy_init();
-      if (!curl) {
-        std::cerr << "初始化 libcurl 失败" << std::endl;
-        return;
-      }
-
-      CURLcode res;
-      std::string response;
-      struct curl_slist* headers = nullptr;
-
-      // 构建 multipart/form-data 请求体
-      curl_mime* mime = curl_mime_init(curl);
-      curl_mimepart* part = curl_mime_addpart(mime);
-      curl_mime_name(part, "file");
-      curl_mime_filename(part, "frame.jpg");
-      curl_mime_data(part, reinterpret_cast<const char*>(msg->data.data()), msg->data.size());
-      curl_mime_type(part, "image/jpeg");
-
-      // 设置 curl 选项
-      curl_easy_setopt(curl, CURLOPT_URL, SERVER_URL.c_str());
-      curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
-      curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-      curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-      curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-
-      // 发送请求
-      res = curl_easy_perform(curl);
-
-      if (res != CURLE_OK) {
-        std::cerr << "请求失败: " << curl_easy_strerror(res) << std::endl;
-      } else {
-        long http_code = 0;
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-        if (http_code == 200) {
-          std::cout << "识别结果: " << response << std::endl;
-          greetings(response);
-        } else {
-          std::cerr << "HTTP 错误: " << http_code << "\n返回内容: " << response << std::endl;
-        }
-      }
-
-      // 释放资源
-      curl_mime_free(mime);
-      curl_easy_cleanup(curl);
-      curl_slist_free_all(headers);
-
-    } catch (const std::exception& e) {
-      std::cerr << "Exception in image callback: " << e.what() << std::endl;
-    }
-  });
-
-  status = controller.OpenBinocularCamera();
-  if (status.code != ErrorCode::OK) {
-    std::cerr << "Open rgbd camera failed"
-              << ", code: " << status.code
-              << ", message: " << status.message << std::endl;
-    robot.Shutdown();
-    return -1;
-  }
-
-  return 0;
-}
-
-int initial_motion_controller() {
-  Status status = robot.SetMotionControlLevel(ControllerLevel::HighLevel);
-  if (status.code != ErrorCode::OK) {
-    std::cerr << "Switch robot motion control level failed"
-              << ", code: " << status.code
-              << ", message: " << status.message << std::endl;
-    robot.Shutdown();
-    return -1;
-  }
-
-  std::cout << "left_x_axis_gain: " << left_x_axis_gain.load() << ", left_y_axis_gain: " << left_y_axis_gain.load() << ", right_x_axis_gain: " << right_x_axis_gain.load() << ", right_y_axis_gain: " << right_y_axis_gain.load() << std::endl;
-  return 0;
 }
 
 void motion_control() {
@@ -533,15 +365,11 @@ void motion_control() {
         break;
       }
       case '3': {
-        UpClimbStairs();
-        break;
-      }
-      case '4': {
         DownClimbStairs();
         break;
       }
-      case '5': {
-        Walk();
+      case '4': {
+        UpClimbStairs();
         break;
       }
       case 'g': {
@@ -572,6 +400,11 @@ void motion_control() {
       case 32: {  // space
         JoyStickCommand(0.0, 0.0, 0.0, 0.0);
         ExecuteTrickAction(TrickAction::ACTION_HIGH_JUMP, "ACTION_HIGH_JUMP");
+        break;
+      }
+      case 'h': {
+        JoyStickCommand(0.0, 0.0, 0.0, 0.0);
+        Dancing();
         break;
       }
       case 'w': {
@@ -630,6 +463,26 @@ void motion_control() {
         JoyStickCommand(0.0, 0.0, 0.0, 0.0);  // Stop
         break;
       }
+      case 'W': {
+        JoyStickCommand(0.0, 0.0, 0.0, 0.0);
+        ExecuteTrickAction(TrickAction::ACTION_JUMP_FRONT, "ACTION_JUMP_FRONT");
+        break;
+      }
+      case 'A': {
+        JoyStickCommand(0.0, 0.0, 0.0, 0.0);
+        ExecuteTrickAction(TrickAction::ACTION_SPIN_JUMP_LEFT, "ACTION_SPIN_JUMP_LEFT");
+        break;
+      }
+      case 'S': {
+        JoyStickCommand(0.0, 0.0, 0.0, 0.0);
+        ExecuteTrickAction(TrickAction::ACTION_STRETCH, "ACTION_STRETCH");
+        break;
+      }
+      case 'D': {
+        JoyStickCommand(0.0, 0.0, 0.0, 0.0);
+        ExecuteTrickAction(TrickAction::ACTION_SPIN_JUMP_RIGHT, "ACTION_SPIN_JUMP_RIGHT");
+        break;
+      }
       default:
         std::cout << "Unknown key: " << key << std::endl;
         break;
@@ -637,6 +490,235 @@ void motion_control() {
 
     usleep(10000);
   }
+}
+
+// 用于接收 HTTP 响应
+static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* output) {
+  size_t total_size = size * nmemb;
+  output->append(static_cast<char*>(contents), total_size);
+  return total_size;
+}
+
+std::string get_face_name(std::string& response) {
+  nlohmann::json j = nlohmann::json::parse(response);
+
+  if (j.contains("data")) {
+    auto data = j["data"];
+    std::string data_status = data.value("status", "");
+    if (data_status == "success") {
+      return data.value("name", "");
+    }
+  } else {
+    std::cerr << "JSON does not contain 'data'" << std::endl;
+  }
+  return "";
+}
+
+void greetings(const std::string& name) {
+  try {
+    auto it = BETAGO_MEMBERS.find(name);
+    if (it != BETAGO_MEMBERS.end()) {
+      const member& m = it->second;
+      auto& controller = robot.GetAudioController();
+
+      TtsCommand tts;
+      tts.id = std::to_string(m.command_id);
+      tts.content = m.greeting;
+      tts.priority = TtsPriority::HIGH;
+      tts.mode = TtsMode::CLEARTOP;
+
+      Status status = controller.Play(tts);
+      if (status.code != ErrorCode::OK) {
+        std::cerr << "Play TTS failed"
+                  << ", code: " << status.code
+                  << ", message: " << status.message << std::endl;
+      }
+    }
+  } catch (const std::exception& e) {
+    std::cerr << "Exception in greetings: " << e.what() << std::endl;
+  }
+}
+
+static bool upload_image(const std::shared_ptr<CompressedImage>& msg, std::string& response) {
+  thread_local CURL* curl = nullptr;  // 每个线程一个 curl 对象
+  if (!curl) {
+    curl = curl_easy_init();
+    if (!curl) {
+      std::cerr << "初始化 libcurl 失败" << std::endl;
+      return false;
+    }
+    curl_easy_setopt(curl, CURLOPT_URL, SERVER_URL.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+    curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
+  }
+
+  curl_mime* mime = curl_mime_init(curl);
+  curl_mimepart* part = curl_mime_addpart(mime);
+  curl_mime_name(part, "file");
+  curl_mime_filename(part, "frame.jpg");
+  curl_mime_data(part, reinterpret_cast<const char*>(msg->data.data()), msg->data.size());
+  curl_mime_type(part, "image/jpeg");
+
+  response.clear();
+  curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+  CURLcode res = curl_easy_perform(curl);
+  curl_mime_free(mime);
+
+  if (res != CURLE_OK) {
+    std::cerr << "请求失败: " << curl_easy_strerror(res) << std::endl;
+    return false;
+  }
+
+  long http_code = 0;
+  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+  if (http_code != 200) {
+    std::cerr << "HTTP 错误: " << http_code << "\n返回内容: " << response << std::endl;
+    return false;
+  }
+
+  return true;
+}
+
+static const int SAME_PERSON_DELAY_MS = 10000;  // 10 秒
+static const int REQUEST_COOLDOWN_MS = 2000;    // 全局最小请求间隔
+
+struct GreetingState {
+  std::string last_name;
+  std::chrono::steady_clock::time_point last_greeted_time;
+  std::chrono::steady_clock::time_point last_request_time;
+  std::mutex mutex;
+};
+
+static GreetingState g_state;
+
+auto receive_img() -> void (*)(std::shared_ptr<CompressedImage>) {
+  return [](const std::shared_ptr<CompressedImage> msg) {
+    auto now = std::chrono::steady_clock::now();
+
+    // 限制全局请求频率
+    {
+      std::lock_guard<std::mutex> lock(g_state.mutex);
+      if (std::chrono::duration_cast<std::chrono::milliseconds>(now - g_state.last_request_time).count() < REQUEST_COOLDOWN_MS)
+        return;
+      g_state.last_request_time = now;
+    }
+
+    std::string response;
+    if (!upload_image(msg, response))
+      return;
+
+    // 假设 get_face_name() 从 response 提取识别结果
+    const std::string name = get_face_name(response);
+    if (name.empty()) {
+      g_state.last_name = "";
+      return;
+    }
+
+    {
+      std::lock_guard<std::mutex> lock(g_state.mutex);
+      auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_state.last_greeted_time).count();
+      if (name == g_state.last_name && diff < SAME_PERSON_DELAY_MS) {
+        std::cout << "Detected same person (" << name << ") within "
+                  << SAME_PERSON_DELAY_MS << "ms, skip greeting." << std::endl;
+        return;
+      }
+
+      g_state.last_name = name;
+      g_state.last_greeted_time = now;
+    }
+
+    std::cout << "识别结果: " << name << std::endl;
+    greetings(name);
+  };
+}
+
+int initial_robot() {
+  std::string local_ip = "192.168.54.10";
+  // Configure local IP address for direct network connection to machine and initialize SDK
+  if (!robot.Initialize(local_ip)) {
+    std::cerr << "Robot SDK initialization failed." << std::endl;
+    robot.Shutdown();
+    return -1;
+  }
+
+  Status status = robot.Connect();
+  if (status.code != ErrorCode::OK) {
+    std::cerr << "Connect robot failed"
+              << ", code: " << status.code
+              << ", message: " << status.message << std::endl;
+    robot.Shutdown();
+    return -1;
+  }
+  return 0;
+}
+
+int initial_audio_controller() {
+  auto& controller = robot.GetAudioController();
+  int get_volume = 0;
+  Status status = controller.GetVolume(get_volume);
+  if (status.code != ErrorCode::OK) {
+    std::cerr << "Get volume failed"
+              << ", code: " << status.code
+              << ", message: " << status.message << std::endl;
+    robot.Shutdown();
+    return -1;
+  }
+
+  std::cout << "Get volume success, volume: " << std::to_string(get_volume) << std::endl;
+
+  // Set robot volume
+  status = controller.SetVolume(2);
+  if (status.code != ErrorCode::OK) {
+    std::cerr << "Set volume failed"
+              << ", code: " << status.code
+              << ", message: " << status.message << std::endl;
+    robot.Shutdown();
+    return -1;
+  }
+
+  return 0;
+}
+
+int initial_sensor_controller() {
+  auto& controller = robot.GetSensorController();
+  Status status = controller.OpenChannelSwith();
+  if (status.code != ErrorCode::OK) {
+    std::cerr << "Open channel failed"
+              << ", code: " << status.code
+              << ", message: " << status.message << std::endl;
+    robot.Shutdown();
+    return -1;
+  }
+
+  controller.SubscribeLeftBinocularHighImg(receive_img());
+
+  status = controller.OpenBinocularCamera();
+  if (status.code != ErrorCode::OK) {
+    std::cerr << "Open rgbd camera failed"
+              << ", code: " << status.code
+              << ", message: " << status.message << std::endl;
+    robot.Shutdown();
+    return -1;
+  }
+
+  return 0;
+}
+
+int initial_motion_controller() {
+  Status status = robot.SetMotionControlLevel(ControllerLevel::HighLevel);
+  if (status.code != ErrorCode::OK) {
+    std::cerr << "Switch robot motion control level failed"
+              << ", code: " << status.code
+              << ", message: " << status.message << std::endl;
+    robot.Shutdown();
+    return -1;
+  }
+
+  std::cout << "left_x_axis_gain: " << left_x_axis_gain.load() << ", left_y_axis_gain: " << left_y_axis_gain.load() << ", right_x_axis_gain: " << right_x_axis_gain.load() << ", right_y_axis_gain: " << right_y_axis_gain.load() << std::endl;
+  return 0;
 }
 
 int close_audio_controller() {
