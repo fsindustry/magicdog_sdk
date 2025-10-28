@@ -635,6 +635,32 @@ auto receive_img() -> void (*)(std::shared_ptr<CompressedImage>) {
   };
 }
 
+struct VoiceState {
+  std::string last_name;
+  std::chrono::steady_clock::time_point last_request_time;
+  std::mutex mutex;
+};
+
+static VoiceState v_state;
+
+void (*receive_voice())(std::shared_ptr<ByteMultiArray>) {
+  return [](const std::shared_ptr<ByteMultiArray> data) {
+
+    auto now = std::chrono::steady_clock::now();
+
+    // 限制全局请求频率
+    {
+      std::lock_guard<std::mutex> lock(g_state.mutex);
+      if (std::chrono::duration_cast<std::chrono::milliseconds>(now - g_state.last_request_time).count() < REQUEST_COOLDOWN_MS)
+        return;
+      g_state.last_request_time = now;
+    }
+
+    std::cout << "Received BF voice data, size: " << data->data.size() << std::endl;
+  };
+}
+
+
 int initial_robot() {
   std::string local_ip = "192.168.54.10";
   // Configure local IP address for direct network connection to machine and initialize SDK
@@ -654,6 +680,7 @@ int initial_robot() {
   }
   return 0;
 }
+
 
 int initial_audio_controller() {
   auto& controller = robot.GetAudioController();
@@ -678,6 +705,34 @@ int initial_audio_controller() {
     robot.Shutdown();
     return -1;
   }
+
+  // // Get voice configuration
+  // GetSpeechConfig get_speech_config;
+  // status = controller.GetVoiceConfig(get_speech_config);
+  // if (status.code != ErrorCode::OK) {
+  //   std::cerr << "Get voice config failed"
+  //             << ", code: " << status.code
+  //             << ", message: " << status.message << std::endl;
+  //   robot.Shutdown();
+  //   return -1;
+  // }
+  //
+  // std::cout << "Get voice config success, speaker_id: " << get_speech_config.speaker_config.selected.speaker_id
+  //           << ", region: " << get_speech_config.speaker_config.selected.region
+  //           << ", bot_id: " << get_speech_config.bot_config.selected.bot_id
+  //           << ", is_front_doa: " << get_speech_config.dialog_config.is_front_doa
+  //           << ", is_fullduplex_enable: " << get_speech_config.dialog_config.is_fullduplex_enable
+  //           << ", is_enable: " << get_speech_config.dialog_config.is_enable
+  //           << ", is_doa_enable: " << get_speech_config.dialog_config.is_doa_enable
+  //           << ", speaker_speed: " << get_speech_config.speaker_config.speaker_speed
+  //           << ", wakeup_name: " << get_speech_config.wakeup_config.name
+  //           << ", custom_bot: " << get_speech_config.bot_config.custom_data.size() << std::endl;
+  // for (const auto& [key, value] : get_speech_config.bot_config.custom_data) {
+  //   std::cout << "Custom bot data: " << key << ", " << value.name << std::endl;
+  // }
+  //
+  // // Subscribe to BF voice data
+  // controller.SubscribeBfVoiceData(receive_voice());
 
   return 0;
 }

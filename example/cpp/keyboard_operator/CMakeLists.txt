@@ -2,8 +2,10 @@
 find_package(OpenCV REQUIRED)
 # 查找 libcurl
 find_package(CURL REQUIRED)
-# 查找
+# 查找 json
 find_package(nlohmann_json REQUIRED)
+# 查找 ALSA
+find_package(ALSA REQUIRED)
 
 # 设置 MagicDog SDK 路径
 set(MAGICDOG_SDK_DIR "/opt/magic_robotics/magicdog_sdk")
@@ -28,6 +30,19 @@ target_link_libraries(face_recognize_client
         ${OpenCV_LIBS}
         ${CURL_LIBRARIES}
 )
+
+
+#### voice recognition demo ####
+add_executable(voice_recognize_client voice_recognize_client.cpp)
+target_include_directories(voice_recognize_client PRIVATE
+        ${ALSA_INCLUDE_DIRS}
+        ${CURL_INCLUDE_DIRS}
+)
+target_link_libraries(voice_recognize_client
+        ${ALSA_LIBRARIES}
+        ${CURL_LIBRARIES}
+)
+
 
 #### keyboard recognition demo ####
 add_executable(keyboard_operator keyboard_operator.cpp)
