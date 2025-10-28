@@ -266,60 +266,81 @@ static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::stri
   return total_size;
 }
 
-constexpr int GREETING_INTERVAL_MS = 5000;  // 5秒
-std::chrono::time_point<std::chrono::steady_clock> last_time = std::chrono::steady_clock::now();
+// 原子标志，用于防止并发执行
+std::atomic_flag greeting_lock = ATOMIC_FLAG_INIT;
+
+// 用于记录上次问候的人名和时间
+std::string last_greeted_name;
+std::chrono::steady_clock::time_point last_greeted_time = std::chrono::steady_clock::now();
+
+constexpr int SAME_PERSON_DELAY_MS = 5000;  // 同一个人重复识别间隔 5 秒
 
 void greetings(const std::string& response) {
-  // 使用静态变量记录上一次执行时间
-  last_time = std::chrono::steady_clock::now() - std::chrono::milliseconds(GREETING_INTERVAL_MS);
-
-  auto now = std::chrono::steady_clock::now();
-  auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_time).count();
-
-  // 如果距离上次执行未超过指定时间，直接返回
-  if (duration_ms < GREETING_INTERVAL_MS) {
+  // 尝试获取锁
+  if (greeting_lock.test_and_set(std::memory_order_acquire)) {
+    // 若返回 true，说明已有线程正在执行，直接返回
+    std::cout << "Another greeting thread is running, skip this call." << std::endl;
     return;
   }
 
-  // 更新 last_time
-  last_time = now;
+  try {
+    // ---------------- 临界区开始 ----------------
+    nlohmann::json j = nlohmann::json::parse(response);
 
-  // 解析 JSON
-  nlohmann::json j = nlohmann::json::parse(response);
+    if (j.contains("data")) {
+      auto data = j["data"];
+      std::string data_status = data.value("status", "");
 
-  // 检查 data 是否存在
-  if (j.contains("data")) {
-    auto data = j["data"];
+      if (data_status == "success") {
+        std::string name = data.value("name", "");
+        std::cout << "data.name: " << name << std::endl;
 
-    // 获取 data.status
-    std::string data_status = data.value("status", "");
-    if (data_status == "success") {
-      // 获取 data.name
-      std::string name = data.value("name", "");
-      std::cout << "data.name: " << name << std::endl;
-      auto it = BETAGO_MEMBERS.find(name);
-      if (it != BETAGO_MEMBERS.end()) {
-        const member& m = it->second;
+        auto now = std::chrono::steady_clock::now();
+        if (name == last_greeted_name) {
+          auto same_person_duration_ms =
+              std::chrono::duration_cast<std::chrono::milliseconds>(now - last_greeted_time).count();
+          if (same_person_duration_ms < SAME_PERSON_DELAY_MS) {
+            std::cout << "Detected same person (" << name << ") within "
+                      << SAME_PERSON_DELAY_MS << "ms, skip greeting." << std::endl;
+            greeting_lock.clear(std::memory_order_release);
+            return;
+          }
+        }
 
-        auto& controller = robot.GetAudioController();
-        // Play voice
-        TtsCommand tts;
-        tts.id = std::to_string(m.command_id);
-        tts.content = m.greeting;
-        tts.priority = TtsPriority::HIGH;
-        tts.mode = TtsMode::CLEARTOP;
-        Status status = controller.Play(tts);
-        if (status.code != ErrorCode::OK) {
-          std::cerr << "Play TTS failed"
-                    << ", code: " << status.code
-                    << ", message: " << status.message << std::endl;
+        last_greeted_name = name;
+        last_greeted_time = now;
+
+        auto it = BETAGO_MEMBERS.find(name);
+        if (it != BETAGO_MEMBERS.end()) {
+          const member& m = it->second;
+          auto& controller = robot.GetAudioController();
+
+          TtsCommand tts;
+          tts.id = std::to_string(m.command_id);
+          tts.content = m.greeting;
+          tts.priority = TtsPriority::HIGH;
+          tts.mode = TtsMode::CLEARTOP;
+
+          Status status = controller.Play(tts);
+          if (status.code != ErrorCode::OK) {
+            std::cerr << "Play TTS failed"
+                      << ", code: " << status.code
+                      << ", message: " << status.message << std::endl;
+          }
         }
       }
+    } else {
+      std::cerr << "JSON does not contain 'data'" << std::endl;
     }
-  } else {
-    std::cerr << "JSON does not contain 'data'" << std::endl;
+    // ---------------- 临界区结束 ----------------
+  } catch (const std::exception& e) {
+    std::cerr << "Exception in greetings: " << e.what() << std::endl;
   }
+
+  // 无论如何都释放锁
+  greeting_lock.clear(std::memory_order_release);
 }
+
 
 int initial_audio_controller() {
   auto& controller = robot.GetAudioController();
@@ -447,32 +468,6 @@ int initial_motion_controller() {
     robot.Shutdown();
     return -1;
   }
-
-  // // Set gait speed ratio
-  // status = robot.GetHighLevelMotionController().SetGaitSpeedRatio(GaitMode::GAIT_DOWN_CLIMB_STAIRS, GaitSpeedRatio{0.25, 0.2, 0.4});
-  // if (status.code != ErrorCode::OK) {
-  //   std::cerr << "Set gait speed ratio failed"
-  //             << ", code: " << status.code
-  //             << ", message: " << status.message << std::endl;
-  //   robot.Shutdown();
-  //   return -1;
-  // }
-
-  // // Get all gait speed ratio
-  // AllGaitSpeedRatio gait_speed_ratios;
-  // status = robot.GetHighLevelMotionController().GetAllGaitSpeedRatio(gait_speed_ratios);
-  // if (status.code != ErrorCode::OK) {
-  //   std::cerr << "Get all gait speed ratio failed"
-  //             << ", code: " << status.code
-  //             << ", message: " << status.message << std::endl;
-  //   robot.Shutdown();
-  //   return -1;
-  // }
-
-  // left_x_axis_gain.store(gait_speed_ratios.gait_speed_ratios[GaitMode::GAIT_DOWN_CLIMB_STAIRS].lateral_ratio);
-  // left_y_axis_gain.store(gait_speed_ratios.gait_speed_ratios[GaitMode::GAIT_DOWN_CLIMB_STAIRS].straight_ratio);
-  // right_x_axis_gain.store(gait_speed_ratios.gait_speed_ratios[GaitMode::GAIT_DOWN_CLIMB_STAIRS].turn_ratio);
-  // right_y_axis_gain.store(0.0);
 
   std::cout << "left_x_axis_gain: " << left_x_axis_gain.load() << ", left_y_axis_gain: " << left_y_axis_gain.load() << ", right_x_axis_gain: " << right_x_axis_gain.load() << ", right_y_axis_gain: " << right_y_axis_gain.load() << std::endl;
   return 0;
@@ -689,14 +684,14 @@ int main(int argc, char* argv[]) {
   }
 
   // initial audio controller
-  // if (const int return_code = initial_audio_controller()) {
-  //   return return_code;
-  // }
-  //
-  // // initial sensor controller
-  // if (const int return_code = initial_sensor_controller()) {
-  //   return return_code;
-  // }
+  if (const int return_code = initial_audio_controller()) {
+    return return_code;
+  }
+
+  // initial sensor controller
+  if (const int return_code = initial_sensor_controller()) {
+    return return_code;
+  }
 
   // initial motion controller
   if (const int return_code = initial_motion_controller()) {
