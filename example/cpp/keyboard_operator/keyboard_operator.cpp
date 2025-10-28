@@ -228,7 +228,7 @@ void Dancing() {
   auto start_time = std::chrono::steady_clock::now();
 
   status = controller.ExecuteTrick(TrickAction::ACTION_DANCE);
-  usleep(30 * 1000 * 1000);
+  usleep(45 * 1000 * 1000);
 
   // 记录结束时间
   auto end_time = std::chrono::steady_clock::now();
