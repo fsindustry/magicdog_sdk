@@ -513,7 +513,7 @@ void greetings(const std::string& name) {
     tts.id = tts_id;
     tts.content = tts_content;
     tts.priority = TtsPriority::HIGH;
-    tts.mode = TtsMode::CLEARTOP;
+    tts.mode = TtsMode::CLEARBUFFER;
     auto& controller = robot.GetAudioController();
     Status status = controller.Play(tts);
     if (status.code != ErrorCode::OK) {
