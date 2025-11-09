@@ -4,6 +4,6 @@ add_subdirectory(high_level_motion_example)
 add_subdirectory(audio_example)
 add_subdirectory(sensor_example)
 add_subdirectory(keyboard_operator)
-
+add_subdirectory(betago)
 
 
