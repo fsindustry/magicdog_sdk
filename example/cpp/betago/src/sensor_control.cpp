@@ -1,6 +1,8 @@
 #include "sensor_control.h"
 #include <iostream>
 
+#include "face_recognition.h"
+
 int initial_sensor_controller() {
   auto& controller = robot.GetSensorController();
   auto status = controller.OpenChannelSwith();
@@ -12,8 +14,8 @@ int initial_sensor_controller() {
     return -1;
   }
 
-  // 注意：这里需要包含face_recognition.h来获取receive_img函数
-  // controller.SubscribeLeftBinocularHighImg(receive_img());
+  // 订阅图像数据
+  controller.SubscribeLeftBinocularHighImg(receive_img());
 
   status = controller.OpenBinocularCamera();
   if (status.code != magic::dog::ErrorCode::OK) {

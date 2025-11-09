@@ -34,6 +34,7 @@ set(SOURCES
         src/http_client.cpp
         src/face_recognition.cpp
         src/voice_recognition.cpp
+        src/nav_control.cpp
         src/main.cpp
 )
 

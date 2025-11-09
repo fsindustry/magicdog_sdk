@@ -1,6 +1,5 @@
 #include "robot.h"
 
-
 int initial_robot() {
   std::string local_ip = "192.168.54.10";
   // Configure local IP address for direct network connection to machine and initialize SDK
