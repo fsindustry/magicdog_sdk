@@ -32,7 +32,10 @@ std::atomic<float> right_x_axis_gain(0.0);
 std::atomic<float> right_y_axis_gain(0.0);
 
 // 目标服务器 URL
-const std::string SERVER_URL = "http://120.92.77.233:3999/face/frame";
+const std::string IMAGE_SERVER_URL = "http://120.92.77.233:3999/face/frame";
+const std::string VOICE_SERVER_URL = "http://120.92.77.233:3999/speech/once";
+static const int SAME_PERSON_DELAY_MS = 10000;  // 10 秒
+static const int REQUEST_COOLDOWN_MS = 2000;    // 全局最小请求间隔
 
 struct member {
   uint64_t command_id;
@@ -531,10 +534,10 @@ static bool upload_image(const std::shared_ptr<CompressedImage>& msg, std::strin
   if (!curl) {
     curl = curl_easy_init();
     if (!curl) {
-      std::cerr << "初始化 libcurl 失败" << std::endl;
+      std::cerr << "人脸识别初始化 libcurl 失败" << std::endl;
       return false;
     }
-    curl_easy_setopt(curl, CURLOPT_URL, SERVER_URL.c_str());
+    curl_easy_setopt(curl, CURLOPT_URL, IMAGE_SERVER_URL.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
     curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
@@ -555,22 +558,18 @@ static bool upload_image(const std::shared_ptr<CompressedImage>& msg, std::strin
   curl_mime_free(mime);
 
   if (res != CURLE_OK) {
-    std::cerr << "请求失败: " << curl_easy_strerror(res) << std::endl;
+    std::cerr << "人脸识别请求失败: " << curl_easy_strerror(res) << std::endl;
     return false;
   }
 
   long http_code = 0;
   curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
   if (http_code != 200) {
-    std::cerr << "HTTP 错误: " << http_code << "\n返回内容: " << response << std::endl;
+    std::cerr << "人脸识别请求错误: " << http_code << "\n返回内容: " << response << std::endl;
     return false;
   }
-
   return true;
 }
-
-static const int SAME_PERSON_DELAY_MS = 10000;  // 10 秒
-static const int REQUEST_COOLDOWN_MS = 2000;    // 全局最小请求间隔
 
 struct GreetingState {
   std::string last_name;
@@ -594,8 +593,9 @@ auto receive_img() -> void (*)(std::shared_ptr<CompressedImage>) {
     }
 
     std::string response;
-    if (!upload_image(msg, response))
+    if (!upload_image(msg, response)) {
       return;
+    }
 
     // 假设 get_face_name() 从 response 提取识别结果
     const std::string name = get_face_name(response);
@@ -617,7 +617,7 @@ auto receive_img() -> void (*)(std::shared_ptr<CompressedImage>) {
       g_state.last_greeted_time = now;
     }
 
-    std::cout << "识别结果: " << name << std::endl;
+    std::cout << "人脸识别结果: " << name << std::endl;
     greetings(name);
   };
 }
@@ -629,6 +629,71 @@ struct VoiceState {
 };
 
 static VoiceState v_state;
+
+static bool upload_audio(const std::shared_ptr<ByteMultiArray> msg, std::string& response) {
+  thread_local CURL* voice_curl = nullptr;  // 每个线程一个 curl 对象
+  if (!voice_curl) {
+    voice_curl = curl_easy_init();
+    if (!voice_curl) {
+      std::cerr << "语音识别初始化 libcurl 失败" << std::endl;
+      return false;
+    }
+    curl_easy_setopt(voice_curl, CURLOPT_URL, VOICE_SERVER_URL.c_str());
+    curl_easy_setopt(voice_curl, CURLOPT_TIMEOUT, 10L);
+    curl_easy_setopt(voice_curl, CURLOPT_WRITEFUNCTION,
+        +[](char* ptr, size_t size, size_t nmemb, void* userdata) -> size_t {
+            auto* resp = reinterpret_cast<std::string*>(userdata);
+            resp->append(ptr, size * nmemb);
+            return size * nmemb;
+        });
+  }
+
+  curl_mime* mime = curl_mime_init(voice_curl);
+  curl_mimepart* part = curl_mime_addpart(mime);
+  curl_mime_name(part, "file");
+  curl_mime_filename(part, "voice.wav");
+  curl_mime_data(part, reinterpret_cast<const char*>(msg->data.data()), msg->data.size());
+  curl_mime_type(part, "audio/wav");  // 仍然声明类型为 wav
+
+  response.clear();
+  curl_easy_setopt(voice_curl, CURLOPT_MIMEPOST, mime);
+  curl_easy_setopt(voice_curl, CURLOPT_WRITEDATA, &response);
+
+  CURLcode res = curl_easy_perform(voice_curl);
+  curl_mime_free(mime);
+
+  if (res != CURLE_OK) {
+    std::cerr << "语音识别请求失败: " << curl_easy_strerror(res) << std::endl;
+    return false;
+  }
+
+  long http_code = 0;
+  curl_easy_getinfo(voice_curl, CURLINFO_RESPONSE_CODE, &http_code);
+  if (http_code != 200) {
+    std::cerr << "语音识别请求错误: " << http_code << "\n返回内容: " << response << std::endl;
+    return false;
+  }
+  return true;
+}
+
+
+bool contains_any(const std::string& text, const std::vector<std::string>& keys) {
+  for (const auto& key : keys) {
+    if (text.find(key) != std::string::npos)
+      return true;
+  }
+  return false;
+}
+
+const std::map<std::vector<std::string>, std::function<void()>> actions = {
+  {{"跳舞", "跳个舞", "跳支舞"}, []() {
+    Dancing();
+  }},
+  {{"握手", "握个手", "握握手"}, []() {
+    JoyStickCommand(0.0, 0.0, 0.0, 0.0);
+    ExecuteTrickAction(TrickAction::ACTION_SHAKE_RIGHT_HAND, "ACTION_SHAKE_RIGHT_HAND");
+  }},
+};
 
 void (*receive_voice())(std::shared_ptr<ByteMultiArray>) {
   return [](const std::shared_ptr<ByteMultiArray> data) {
@@ -643,6 +708,31 @@ void (*receive_voice())(std::shared_ptr<ByteMultiArray>) {
     }
 
     std::cout << "Received BF voice data, size: " << data->data.size() << std::endl;
+
+
+    // 直接发送音频内存数据
+    std::string response;
+    if (!upload_audio(data, response)) {
+      return;
+    }
+
+    std::string txt = "";
+    nlohmann::json j = nlohmann::json::parse(response);
+    if (j.contains("data")) {
+      txt = j.value("data", "");
+    }
+
+    bool matched = false;
+    for (const auto& kv : actions) {
+      if (contains_any(txt, kv.first)) {
+        kv.second();
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched)
+      std::cout << "未匹配到任何动作" << std::endl;
   };
 }
 
@@ -690,33 +780,63 @@ int initial_audio_controller() {
     return -1;
   }
 
-  // // Get voice configuration
-  // GetSpeechConfig get_speech_config;
-  // status = controller.GetVoiceConfig(get_speech_config);
-  // if (status.code != ErrorCode::OK) {
-  //   std::cerr << "Get voice config failed"
-  //             << ", code: " << status.code
-  //             << ", message: " << status.message << std::endl;
-  //   robot.Shutdown();
-  //   return -1;
-  // }
-  //
-  // std::cout << "Get voice config success, speaker_id: " << get_speech_config.speaker_config.selected.speaker_id
-  //           << ", region: " << get_speech_config.speaker_config.selected.region
-  //           << ", bot_id: " << get_speech_config.bot_config.selected.bot_id
-  //           << ", is_front_doa: " << get_speech_config.dialog_config.is_front_doa
-  //           << ", is_fullduplex_enable: " << get_speech_config.dialog_config.is_fullduplex_enable
-  //           << ", is_enable: " << get_speech_config.dialog_config.is_enable
-  //           << ", is_doa_enable: " << get_speech_config.dialog_config.is_doa_enable
-  //           << ", speaker_speed: " << get_speech_config.speaker_config.speaker_speed
-  //           << ", wakeup_name: " << get_speech_config.wakeup_config.name
-  //           << ", custom_bot: " << get_speech_config.bot_config.custom_data.size() << std::endl;
-  // for (const auto& [key, value] : get_speech_config.bot_config.custom_data) {
-  //   std::cout << "Custom bot data: " << key << ", " << value.name << std::endl;
-  // }
-  //
-  // // Subscribe to BF voice data
-  // controller.SubscribeBfVoiceData(receive_voice());
+  // Get voice configuration
+  GetSpeechConfig get_speech_config;
+  status = controller.GetVoiceConfig(get_speech_config);
+  if (status.code != ErrorCode::OK) {
+    std::cerr << "Get voice config failed"
+              << ", code: " << status.code
+              << ", message: " << status.message << std::endl;
+    robot.Shutdown();
+    return -1;
+  }
+
+  std::cout << "Get voice config success, speaker_id: " << get_speech_config.speaker_config.selected.speaker_id
+            << ", region: " << get_speech_config.speaker_config.selected.region
+            << ", bot_id: " << get_speech_config.bot_config.selected.bot_id
+            << ", is_front_doa: " << get_speech_config.dialog_config.is_front_doa
+            << ", is_fullduplex_enable: " << get_speech_config.dialog_config.is_fullduplex_enable
+            << ", is_enable: " << get_speech_config.dialog_config.is_enable
+            << ", is_doa_enable: " << get_speech_config.dialog_config.is_doa_enable
+            << ", speaker_speed: " << get_speech_config.speaker_config.speaker_speed
+            << ", wakeup_name: " << get_speech_config.wakeup_config.name
+            << ", custom_bot: " << get_speech_config.bot_config.custom_data.size() << std::endl;
+  for (const auto& [key, value] : get_speech_config.bot_config.custom_data) {
+    std::cout << "Custom bot data: " << key << ", " << value.name << std::endl;
+  }
+
+
+  // Set voice configuration
+  SetSpeechConfig config;
+  config.speaker_id = get_speech_config.speaker_config.selected.speaker_id;
+  config.region = get_speech_config.speaker_config.selected.region;
+  config.bot_id = get_speech_config.bot_config.selected.bot_id;
+
+  // 设置功能开关
+  config.is_front_doa = true;                  // 强制正前方识别
+  config.is_fullduplex_enable = true;          // 开启自然对话
+  config.is_enable = true;                     // 开启语音功能
+  config.is_doa_enable = true;                 // 开启唤醒方位转头
+
+  // 设置语音参数
+  config.speaker_speed = get_speech_config.speaker_config.speaker_speed;
+  config.wakeup_name = "小K";                  // 唤醒词名称
+
+  // 设置自定义智能体配置
+  config.custom_bot = get_speech_config.bot_config.custom_data;
+
+  // 调用设置函数，设置超时时间为3000毫秒
+  status = controller.SetVoiceConfig(config, 5000);
+  if (status.code != ErrorCode::OK) {
+    std::cerr << "Set voice config failed"
+              << ", code: " << status.code
+              << ", message: " << status.message << std::endl;
+    robot.Shutdown();
+    return -1;
+  }
+
+  // Subscribe to BF voice data
+  controller.SubscribeBfVoiceData(receive_voice());
 
   return 0;
 }
