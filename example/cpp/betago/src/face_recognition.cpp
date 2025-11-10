@@ -1,4 +1,6 @@
 #include "face_recognition.h"
+
+#include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include "audio_control.h"
@@ -13,7 +15,7 @@ std::string get_face_name(std::string& response) {
       std::string data_status = data.value("status", "");
       if (data_status == "success") {
         double similarity = data.value("similarity", 0.0);
-        if (similarity > 0.85) {
+        if (similarity > 0.4) {
           return data.value("name", "");
         }
       }
@@ -26,6 +28,45 @@ std::string get_face_name(std::string& response) {
   return "";
 }
 
+// 辅助函数：生成带时间戳的文件名
+std::string generate_timestamp_filename(const std::string& prefix, const std::string& extension) {
+  auto now = std::chrono::system_clock::now();
+  auto time_t = std::chrono::system_clock::to_time_t(now);
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+      now.time_since_epoch()) % 1000;
+
+  std::stringstream ss;
+  ss << std::put_time(std::localtime(&time_t), "%Y%m%d_%H%M%S");
+  ss << "_" << std::setfill('0') << std::setw(3) << ms.count();
+  return prefix + "_" + ss.str() + extension;
+}
+
+// 保存图像到本地文件
+bool save_image_to_local(const std::shared_ptr<magic::dog::CompressedImage>& image,
+                        const std::string& filename) {
+  try {
+    std::ofstream file(filename, std::ios::binary);
+    if (!file) {
+      std::cerr << "无法创建文件: " << filename << std::endl;
+      return false;
+    }
+
+    file.write(reinterpret_cast<const char*>(image->data.data()), image->data.size());
+    file.close();
+
+    if (!file.good()) {
+      std::cerr << "写入文件失败: " << filename << std::endl;
+      return false;
+    }
+
+    std::cout << "图像已保存到: " << filename << " (大小: " << image->data.size() << " 字节)" << std::endl;
+    return true;
+  } catch (const std::exception& e) {
+    std::cerr << "保存图像异常: " << e.what() << std::endl;
+    return false;
+  }
+}
+
 void (*receive_img())(std::shared_ptr<magic::dog::CompressedImage>) {
   return [](const std::shared_ptr<magic::dog::CompressedImage> msg) {
     auto now = std::chrono::steady_clock::now();
@@ -36,6 +77,12 @@ void (*receive_img())(std::shared_ptr<magic::dog::CompressedImage>) {
         return;
       g_state.last_request_time = now;
     }
+    
+    // // 保存图像到本地
+    // std::string local_filename = generate_timestamp_filename("face_capture", ".jpg");
+    // if (!save_image_to_local(msg, local_filename)) {
+    //   std::cerr << "保存本地图像失败，但仍继续处理人脸识别" << std::endl;
+    // }
 
     std::string response;
     if (!upload_image(msg, response)) {

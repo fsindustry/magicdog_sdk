@@ -807,33 +807,33 @@ int initial_audio_controller() {
 
 
   // Set voice configuration
-  SetSpeechConfig config;
-  config.speaker_id = get_speech_config.speaker_config.selected.speaker_id;
-  config.region = get_speech_config.speaker_config.selected.region;
-  config.bot_id = get_speech_config.bot_config.selected.bot_id;
-
-  // 设置功能开关
-  config.is_front_doa = true;                  // 强制正前方识别
-  config.is_fullduplex_enable = true;          // 开启自然对话
-  config.is_enable = true;                     // 开启语音功能
-  config.is_doa_enable = true;                 // 开启唤醒方位转头
-
-  // 设置语音参数
-  config.speaker_speed = get_speech_config.speaker_config.speaker_speed;
-  config.wakeup_name = "小K";                  // 唤醒词名称
-
-  // 设置自定义智能体配置
-  config.custom_bot = get_speech_config.bot_config.custom_data;
-
-  // 调用设置函数，设置超时时间为3000毫秒
-  status = controller.SetVoiceConfig(config, 5000);
-  if (status.code != ErrorCode::OK) {
-    std::cerr << "Set voice config failed"
-              << ", code: " << status.code
-              << ", message: " << status.message << std::endl;
-    robot.Shutdown();
-    return -1;
-  }
+  // SetSpeechConfig config;
+  // config.speaker_id = get_speech_config.speaker_config.selected.speaker_id;
+  // config.region = get_speech_config.speaker_config.selected.region;
+  // config.bot_id = get_speech_config.bot_config.selected.bot_id;
+  //
+  // // 设置功能开关
+  // config.is_front_doa = true;                  // 强制正前方识别
+  // config.is_fullduplex_enable = true;          // 开启自然对话
+  // config.is_enable = true;                     // 开启语音功能
+  // config.is_doa_enable = true;                 // 开启唤醒方位转头
+  //
+  // // 设置语音参数
+  // config.speaker_speed = get_speech_config.speaker_config.speaker_speed;
+  // config.wakeup_name = "小K";                  // 唤醒词名称
+  //
+  // // 设置自定义智能体配置
+  // config.custom_bot = get_speech_config.bot_config.custom_data;
+  //
+  // // 调用设置函数，设置超时时间为3000毫秒
+  // status = controller.SetVoiceConfig(config, 5000);
+  // if (status.code != ErrorCode::OK) {
+  //   std::cerr << "Set voice config failed"
+  //             << ", code: " << status.code
+  //             << ", message: " << status.message << std::endl;
+  //   robot.Shutdown();
+  //   return -1;
+  // }
 
   // Subscribe to BF voice data
   controller.SubscribeBfVoiceData(receive_voice());

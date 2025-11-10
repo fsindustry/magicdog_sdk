@@ -28,8 +28,8 @@ int initial_audio_controller() {
     return -1;
   }
 
-  magic::dog::GetSpeechConfig get_speech_config;
-  status = controller.GetVoiceConfig(get_speech_config);
+  magic::dog::GetSpeechConfig voice_config;
+  status = controller.GetVoiceConfig(voice_config);
   if (status.code != magic::dog::ErrorCode::OK) {
     std::cerr << "Get voice config failed"
               << ", code: " << status.code
@@ -38,32 +38,34 @@ int initial_audio_controller() {
     return -1;
   }
 
-  std::cout << "Get voice config success, speaker_id: " << get_speech_config.speaker_config.selected.speaker_id
-            << ", region: " << get_speech_config.speaker_config.selected.region
-            << ", bot_id: " << get_speech_config.bot_config.selected.bot_id
-            << ", is_front_doa: " << get_speech_config.dialog_config.is_front_doa
-            << ", is_fullduplex_enable: " << get_speech_config.dialog_config.is_fullduplex_enable
-            << ", is_enable: " << get_speech_config.dialog_config.is_enable
-            << ", is_doa_enable: " << get_speech_config.dialog_config.is_doa_enable
-            << ", speaker_speed: " << get_speech_config.speaker_config.speaker_speed
-            << ", wakeup_name: " << get_speech_config.wakeup_config.name
-            << ", custom_bot: " << get_speech_config.bot_config.custom_data.size() << std::endl;
+  std::cout << "Get voice config success" << std::endl;
+  std::cout << "TTS type: " << static_cast<int>(voice_config.tts_type) << std::endl;
+  std::cout << "Region: " << voice_config.speaker_config.selected.region << std::endl;
+  std::cout << "Speaker: " << voice_config.speaker_config.selected.speaker_id << std::endl;
+  std::cout << "Bot config: " << voice_config.bot_config.selected.bot_id << std::endl;
+  std::cout << "Wake word: " << voice_config.wakeup_config.name << std::endl;
+  std::cout << "Dialog config - Front DOA: " << voice_config.dialog_config.is_front_doa << std::endl;
+  std::cout << "Dialog config - Full duplex: " << voice_config.dialog_config.is_fullduplex_enable << std::endl;
+  std::cout << "Dialog config - Voice enable: " << voice_config.dialog_config.is_enable << std::endl;
+  std::cout << "Dialog config - DOA enable: " << voice_config.dialog_config.is_doa_enable << std::endl;
+  std::cout << "Speaker speed: " << voice_config.speaker_config.speaker_speed << std::endl;
+  std::cout << "Custom bot size: " << voice_config.bot_config.custom_data.size() << std::endl;
 
-  for (const auto& [key, value] : get_speech_config.bot_config.custom_data) {
+  for (const auto& [key, value] : voice_config.bot_config.custom_data) {
     std::cout << "Custom bot data: " << key << ", " << value.name << std::endl;
   }
 
   magic::dog::SetSpeechConfig config;
-  config.speaker_id = get_speech_config.speaker_config.selected.speaker_id;
-  config.region = get_speech_config.speaker_config.selected.region;
-  config.bot_id = get_speech_config.bot_config.selected.bot_id;
+  // config.speaker_id = voice_config.speaker_config.selected.speaker_id;
+  // config.region = voice_config.speaker_config.selected.region;
+  // config.bot_id = voice_config.bot_config.selected.bot_id;
   config.is_front_doa = true;
   config.is_fullduplex_enable = true;
   config.is_enable = true;
   config.is_doa_enable = true;
-  config.speaker_speed = get_speech_config.speaker_config.speaker_speed;
-  config.wakeup_name = "小K";
-  config.custom_bot = get_speech_config.bot_config.custom_data;
+  config.speaker_speed = voice_config.speaker_config.speaker_speed;
+  // config.wakeup_name = "小K";
+  // config.custom_bot = voice_config.bot_config.custom_data;
 
   status = controller.SetVoiceConfig(config, 5000);
   if (status.code != magic::dog::ErrorCode::OK) {

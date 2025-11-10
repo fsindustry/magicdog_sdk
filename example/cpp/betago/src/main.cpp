@@ -57,9 +57,9 @@ int main(int argc, char* argv[]) {
     return return_code;
   }
 
-  if (const int return_code = initial_motion_controller()) {
-    return return_code;
-  }
+  // if (const int return_code = initial_motion_controller()) {
+  //   return return_code;
+  // }
 
   std::thread send_motion_cmd_thread(send_motion_cmd);
   std::thread motion_control_thread(motion_control);
