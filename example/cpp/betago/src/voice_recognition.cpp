@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 #include "http_client.h"
 #include "motion_control.h"
+#include "nav_control.h"
 
 bool contains_any(const std::string& text, const std::vector<std::string>& keys) {
   for (const auto& key : keys) {
@@ -21,6 +22,24 @@ const std::map<std::vector<std::string>, std::function<void()>> actions = {
     {{"握手", "握个手", "握握手"}, []() {
        JoyStickCommand(0.0, 0.0, 0.0, 0.0);
        ExecuteTrickAction(magic::dog::TrickAction::ACTION_SHAKE_RIGHT_HAND, "ACTION_SHAKE_RIGHT_HAND");
+     }},
+    {{"导航", "导航到", "导航至"}, []() {
+
+     }},
+    {{"返程", "返回", "返航"}, []() {
+
+     }},
+    {{"停止", "停止导航", "取消", "取消导航"}, []() {
+       cancelNavigation();
+     }},
+    {{"暂停", "暂停导航"}, []() {
+       pauseNavigation();
+     }},
+    {{"继续", "继续导航", "恢复", "恢复导航"}, []() {
+       resumeNavigation();
+     }},
+    {{"关闭", "关闭导航"}, []() {
+       closeNavigation();
      }},
 };
 
