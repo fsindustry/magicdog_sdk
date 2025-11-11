@@ -5,26 +5,60 @@
 
 #include "voice_recognition.h"
 
-int initial_audio_controller() {
+bool get_volume(int& volume) {
   auto& controller = robot.GetAudioController();
-  int get_volume = 0;
-  auto status = controller.GetVolume(get_volume);
+  auto status = controller.GetVolume(volume);
   if (status.code != magic::dog::ErrorCode::OK) {
     std::cerr << "Get volume failed"
+              << ", code: " << status.code
+              << ", message: " << status.message << std::endl;
+    robot.Shutdown();
+    return true;
+  }
+  return false;
+}
+
+bool set_volume(int volume) {
+  auto& controller = robot.GetAudioController();
+  auto status = controller.SetVolume(volume);
+  if (status.code != magic::dog::ErrorCode::OK) {
+    std::cerr << "Set volume failed"
+              << ", code: " << status.code
+              << ", message: " << status.message << std::endl;
+    robot.Shutdown();
+    return true;
+  }
+  return false;
+}
+
+int initial_audio_controller() {
+  auto& controller = robot.GetAudioController();
+
+  // 开启语音数据流
+  auto status = controller.ControlVoiceStream(true, true);
+  if (status.code != magic::dog::ErrorCode::OK) {
+    std::cerr << "Control voice stream failed"
               << ", code: " << status.code
               << ", message: " << status.message << std::endl;
     robot.Shutdown();
     return -1;
   }
 
-  std::cout << "Get volume success, volume: " << std::to_string(get_volume) << std::endl;
-
-  status = controller.SetVolume(2);
+  status = robot.GetSensorController().OpenChannelSwith();
   if (status.code != magic::dog::ErrorCode::OK) {
-    std::cerr << "Set volume failed"
+    std::cerr << "Open Channel Switch failed"
               << ", code: " << status.code
               << ", message: " << status.message << std::endl;
     robot.Shutdown();
+    return -1;
+  }
+
+  int volume;
+  if (get_volume(volume)) {
+    return -1;
+  }
+
+  if (set_volume(3)) {
     return -1;
   }
 
@@ -55,28 +89,29 @@ int initial_audio_controller() {
     std::cout << "Custom bot data: " << key << ", " << value.name << std::endl;
   }
 
-  magic::dog::SetSpeechConfig config;
+  // magic::dog::SetSpeechConfig config;
   // config.speaker_id = voice_config.speaker_config.selected.speaker_id;
   // config.region = voice_config.speaker_config.selected.region;
   // config.bot_id = voice_config.bot_config.selected.bot_id;
-  config.is_front_doa = true;
-  config.is_fullduplex_enable = true;
-  config.is_enable = true;
-  config.is_doa_enable = true;
-  config.speaker_speed = voice_config.speaker_config.speaker_speed;
+  // config.is_front_doa = false;
+  // config.is_fullduplex_enable = true;
+  // config.is_enable = true;
+  // config.is_doa_enable = true;
+  // config.speaker_speed = voice_config.speaker_config.speaker_speed;
   // config.wakeup_name = "小K";
   // config.custom_bot = voice_config.bot_config.custom_data;
-
-  status = controller.SetVoiceConfig(config, 5000);
-  if (status.code != magic::dog::ErrorCode::OK) {
-    std::cerr << "Set voice config failed"
-              << ", code: " << status.code
-              << ", message: " << status.message << std::endl;
-    robot.Shutdown();
-    return -1;
-  }
+  //
+  // status = controller.SetVoiceConfig(config, 10000);
+  // if (status.code != magic::dog::ErrorCode::OK) {
+  //   std::cerr << "Set voice config failed"
+  //             << ", code: " << status.code
+  //             << ", message: " << status.message << std::endl;
+  //   robot.Shutdown();
+  //   return -1;
+  // }
 
   // 订阅声音数据
+  controller.SubscribeOriginVoiceData(receive_voice());
   controller.SubscribeBfVoiceData(receive_voice());
 
   return 0;

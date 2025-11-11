@@ -5,7 +5,7 @@
 
 int initial_sensor_controller() {
   auto& controller = robot.GetSensorController();
-  auto status = robot.OpenChannelSwitch();
+  auto status = controller.OpenChannelSwith();
   if (status.code != magic::dog::ErrorCode::OK) {
     std::cerr << "Open channel failed"
               << ", code: " << status.code
@@ -37,7 +37,7 @@ int close_sensor_controller() {
               << ", message: " << status.message << std::endl;
   }
 
-  status = robot.CloseChannelSwitch();
+  status = robot.GetSensorController().CloseChannelSwith();
   if (status.code != magic::dog::ErrorCode::OK) {
     std::cerr << "Close channel failed"
               << ", code: " << status.code

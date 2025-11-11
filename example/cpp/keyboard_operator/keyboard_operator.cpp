@@ -686,13 +686,13 @@ bool contains_any(const std::string& text, const std::vector<std::string>& keys)
 }
 
 const std::map<std::vector<std::string>, std::function<void()>> actions = {
-  {{"跳舞", "跳个舞", "跳支舞"}, []() {
-    Dancing();
-  }},
-  {{"握手", "握个手", "握握手"}, []() {
-    JoyStickCommand(0.0, 0.0, 0.0, 0.0);
-    ExecuteTrickAction(TrickAction::ACTION_SHAKE_RIGHT_HAND, "ACTION_SHAKE_RIGHT_HAND");
-  }},
+    {{"跳舞", "跳个舞", "跳支舞"}, []() {
+       Dancing();
+     }},
+    {{"握手", "握个手", "握握手"}, []() {
+       JoyStickCommand(0.0, 0.0, 0.0, 0.0);
+       ExecuteTrickAction(TrickAction::ACTION_SHAKE_RIGHT_HAND, "ACTION_SHAKE_RIGHT_HAND");
+     }},
 };
 
 void (*receive_voice())(std::shared_ptr<ByteMultiArray>) {
@@ -805,7 +805,6 @@ int initial_audio_controller() {
     std::cout << "Custom bot data: " << key << ", " << value.name << std::endl;
   }
 
-
   // Set voice configuration
   // SetSpeechConfig config;
   // config.speaker_id = get_speech_config.speaker_config.selected.speaker_id;
@@ -843,7 +842,7 @@ int initial_audio_controller() {
 
 int initial_sensor_controller() {
   auto& controller = robot.GetSensorController();
-  Status status = robot.OpenChannelSwitch();
+  Status status = controller.OpenChannelSwith();
   if (status.code != ErrorCode::OK) {
     std::cerr << "Open channel failed"
               << ", code: " << status.code
@@ -903,7 +902,7 @@ int close_sensor_controller() {
               << ", message: " << status.message << std::endl;
   }
 
-  status = robot.CloseChannelSwitch();
+  status = robot.GetSensorController().CloseChannelSwith();
   if (status.code != ErrorCode::OK) {
     std::cerr << "Close channel failed"
               << ", code: " << status.code
